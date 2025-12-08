@@ -1,0 +1,239 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  background: #050816;
+  color: #f5f5f5;
+}
+
+.app {
+  max-width: 480px;
+  margin: 0 auto;
+  min-height: 100vh;
+  padding: 16px;
+}
+
+.app-header {
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 1.8rem;
+}
+
+.subtitle {
+  margin: 4px 0 0;
+  font-size: 0.9rem;
+  color: #9ca3af;
+}
+
+.screen {
+  display: none;
+}
+
+.screen.active {
+  display: block;
+}
+
+h2 {
+  margin-top: 0;
+  margin-bottom: 8px;
+}
+
+h3 {
+  margin-bottom: 8px;
+}
+
+.hint {
+  font-size: 0.9rem;
+  color: #9ca3af;
+  margin-bottom: 12px;
+}
+
+.card {
+  background: #111827;
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 12px;
+  border: 1px solid #1f2937;
+}
+
+label {
+  display: block;
+  font-size: 0.9rem;
+  margin-bottom: 4px;
+}
+
+input,
+select {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 8px;
+  border-radius: 10px;
+  border: 1px solid #374151;
+  background: #020617;
+  color: #f9fafb;
+  font-size: 0.95rem;
+}
+
+input:focus,
+select:focus {
+  outline: 2px solid #4f46e5;
+  outline-offset: 1px;
+}
+
+button {
+  border: none;
+  border-radius: 999px;
+  padding: 10px 16px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.primary {
+  background: #6366f1;
+  color: #f9fafb;
+  width: 100%;
+  margin-top: 8px;
+}
+
+.secondary {
+  background: #0ea5e9;
+  color: #f9fafb;
+}
+
+.ghost {
+  background: transparent;
+  color: #9ca3af;
+  border: 1px solid #374151;
+}
+
+.buttons-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.buttons-row button {
+  flex: 1;
+}
+
+.inline-row {
+  display: flex;
+  gap: 6px;
+}
+
+.inline-row input {
+  flex: 1;
+}
+
+.list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 8px;
+}
+
+.list li {
+  background: #020617;
+  border-radius: 10px;
+  padding: 8px 10px;
+  margin-bottom: 6px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.95rem;
+}
+
+.list.small li {
+  font-size: 0.85rem;
+}
+
+.remove-player-btn {
+  background: transparent;
+  color: #f87171;
+  border: none;
+  padding: 4px 8px;
+  font-size: 1.1rem;
+}
+
+.memes-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.meme-card {
+  background: #020617;
+  border-radius: 14px;
+  padding: 10px;
+  border: 1px solid #1f2937;
+}
+
+.meme-card img {
+  width: 100%;
+  border-radius: 10px;
+  max-height: 260px;
+  object-fit: contain;
+  margin-bottom: 6px;
+  background: #020617;
+}
+
+.meme-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 6px;
+}
+
+.meme-player {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.meme-caption {
+  font-size: 0.88rem;
+  color: #d1d5db;
+}
+
+.vote-btn {
+  width: 100%;
+  background: #16a34a;
+  color: #f9fafb;
+  font-size: 0.9rem;
+}
+
+.results-list {
+  padding-left: 18px;
+  margin-top: 8px;
+}
+
+.results-list li {
+  margin-bottom: 10px;
+  font-size: 0.95rem;
+}
+
+.result-caption {
+  font-size: 0.85rem;
+  color: #9ca3af;
+}
+
+/* маленький текст-подсказка */
+.hint.small {
+  font-size: 0.75rem;
+  margin-top: -4px;
+  margin-bottom: 8px;
+  color: #6b7280;
+}

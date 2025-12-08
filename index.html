@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <title>Мем-баттл</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="app-header">
+      <h1>Мем-баттл</h1>
+      <p class="subtitle">Локальная версия с комнатами</p>
+    </header>
+
+    <main>
+      <!-- Выбор роли -->
+      <section id="screen-role" class="screen active">
+        <h2>Выбери режим</h2>
+        <p class="hint">
+          Открой сайт на телевизоре как <strong>ведущий</strong>
+          или на телефоне как <strong>игрок</strong>.
+        </p>
+        <div class="buttons-row">
+          <button id="btn-role-host" class="primary">
+            Я ведущий (экран для всех)
+          </button>
+          <button id="btn-role-player" class="secondary">
+            Я игрок (телефон)
+          </button>
+        </div>
+      </section>
+
+      <!-- Домашний экран ведущего -->
+      <section id="screen-home" class="screen">
+        <h2>Новая игра</h2>
+        <p class="hint">
+          Это режим ведущего / экрана для телевизора. Здесь создаётся комната,
+          добавляются мемы и показываются результаты.
+        </p>
+        <button id="btn-new-game" class="primary">Новая игра</button>
+      </section>
+
+      <!-- Лобби ведущего -->
+      <section id="screen-lobby" class="screen">
+        <h2>Лобби <span id="room-label"></span></h2>
+
+        <!-- Код комнаты -->
+        <div class="card">
+          <label for="room-id-input">Код комнаты</label>
+          <div class="inline-row">
+            <input
+              id="room-id-input"
+              type="text"
+              placeholder="CODE1"
+              autocomplete="off"
+            />
+            <button id="btn-apply-room" type="button" class="secondary">
+              Пере-создать
+            </button>
+          </div>
+          <p class="hint small">
+            Код комнаты генерируется автоматически при старте игры.
+            Эту комнату используют игроки, чтобы подключиться.
+          </p>
+        </div>
+
+        <p class="hint">
+          Для онлайн-игры игроки подключаются сами. Поле ниже можно использовать
+          только для полностью локальной игры (один экран).
+        </p>
+
+        <form id="form-add-player" class="card">
+          <label for="player-name-input">Имя игрока (локальная игра)</label>
+          <div class="inline-row">
+            <input
+              id="player-name-input"
+              type="text"
+              placeholder="Например, Лой"
+              autocomplete="off"
+            />
+            <button type="submit" class="secondary">Добавить</button>
+          </div>
+        </form>
+
+        <h3>Игроки (подключённые и локальные)</h3>
+        <ul id="players-list" class="list"></ul>
+
+        <div class="buttons-row">
+          <button id="btn-start-round" class="primary" disabled>
+            Начать раунд
+          </button>
+          <button id="btn-back-home" class="ghost">Назад</button>
+        </div>
+      </section>
+
+      <!-- Экран добавления мемов (ведущий) -->
+      <section id="screen-submit" class="screen">
+        <h2>
+          Раунд <span id="round-number"></span>: добавление мемов
+        </h2>
+        <p class="hint">
+          Ведущий может добавлять мемы вручную (например, для офлайн-игры).
+          Игроки, подключённые к комнате, могут отправлять свои мемы
+          со своих телефонов.
+        </p>
+
+        <form id="form-add-meme" class="card">
+          <label for="meme-player-select">Игрок</label>
+          <select id="meme-player-select"></select>
+
+          <label for="meme-url-input">Ссылка на картинку</label>
+          <input
+            id="meme-url-input"
+            type="url"
+            placeholder="https://…"
+          />
+
+          <label for="meme-file-input">Или выбери файл (картинку)</label>
+          <input
+            id="meme-file-input"
+            type="file"
+            accept="image/*"
+          />
+          <p class="hint small">
+            Можно вставить ссылку, выбрать файл или и то и другое.
+            Если выбран файл, ссылка игнорируется.
+          </p>
+
+          <label for="meme-caption-input">Подпись (опционально)</label>
+          <input
+            id="meme-caption-input"
+            type="text"
+            placeholder="Ваш текст под мемом"
+          />
+
+          <button type="submit" class="secondary">
+            Добавить мем
+          </button>
+        </form>
+
+        <h3>Уже добавлено</h3>
+        <ul id="memes-preview-list" class="list small"></ul>
+
+        <button id="btn-go-vote" class="primary" disabled>
+          Перейти к голосованию
+        </button>
+      </section>
+
+      <!-- Экран голосования (ведущий / телек) -->
+      <section id="screen-vote" class="screen">
+        <h2>Голосование</h2>
+        <p class="hint">
+          Покажи экран всем. Каждый по очереди голосует за любимый мем
+          (на этом устройстве или со своих телефонов).
+        </p>
+
+        <div id="vote-memes-container" class="memes-grid"></div>
+
+        <button id="btn-show-results" class="primary">
+          Показать результаты
+        </button>
+      </section>
+
+      <!-- Экран результатов (ведущий) -->
+      <section id="screen-results" class="screen">
+        <h2>
+          Результаты раунда <span id="results-round-number"></span>
+        </h2>
+
+        <ol id="results-list" class="results-list"></ol>
+
+        <div class="buttons-row">
+          <button id="btn-next-round" class="primary">
+            Следующий раунд
+          </button>
+          <button id="btn-new-game-from-results" class="ghost">
+            Новая игра
+          </button>
+        </div>
+      </section>
+
+      <!-- Экран игрока -->
+      <section id="screen-player" class="screen">
+        <h2>Я игрок</h2>
+        <p class="hint">
+          Если ведущий отправил тебе ссылку, просто открой её — ты автоматически
+          подключишься к нужной комнате. Если заходишь через главное меню,
+          введи код комнаты вручную.
+        </p>
+
+        <div class="card">
+          <label for="player-room-input">Код комнаты</label>
+          <div class="inline-row">
+            <input
+              id="player-room-input"
+              type="text"
+              placeholder="Например, MEME1"
+              autocomplete="off"
+            />
+            <button id="btn-player-join" type="button" class="secondary">
+              Подключиться
+            </button>
+          </div>
+          <p class="hint small" id="player-room-status"></p>
+        </div>
+
+        <div class="card">
+          <label for="player-nick-input">Твоё имя / ник</label>
+          <input
+            id="player-nick-input"
+            type="text"
+            placeholder="Например, Лой"
+            autocomplete="off"
+          />
+          <p class="hint small">
+            Имя будет видно только в результатах. Во время голосования
+            мемы анонимные. С одного устройства — один игрок.
+          </p>
+        </div>
+
+        <div class="card">
+          <h3>Отправить мем</h3>
+          <form id="player-meme-form">
+            <label for="player-meme-url">Ссылка на картинку</label>
+            <input
+              id="player-meme-url"
+              type="url"
+              placeholder="https://…"
+            />
+
+            <label for="player-meme-file">Или выбери файл</label>
+            <input
+              id="player-meme-file"
+              type="file"
+              accept="image/*"
+            />
+
+            <label for="player-meme-caption">Подпись (опционально)</label>
+            <input
+              id="player-meme-caption"
+              type="text"
+              placeholder="Текст под мемом"
+            />
+
+            <button type="submit" class="secondary">
+              Отправить мем
+            </button>
+          </form>
+        </div>
+
+        <h3>Голосование</h3>
+        <p class="hint small">
+          Когда ведущий запустит голосование, здесь появятся мемы.
+          Ты можешь проголосовать только один раз за раунд.
+        </p>
+
+        <div id="player-vote-container" class="memes-grid"></div>
+      </section>
+    </main>
+  </div>
+
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js" crossorigin="anonymous"></script>
+  <script src="script.js"></script>
+</body>
+</html>
