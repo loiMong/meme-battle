@@ -113,6 +113,144 @@ document.addEventListener("DOMContentLoaded", () => {
     if (btnGoVote) btnGoVote.disabled = true;
   }
 
+  // === media helpers ===
+  function normalizeYouTubeUrl(raw) {
+    try {
+      const url = new URL(raw);
+      let videoId = null;
+      if (url.hostname.includes("youtu.be")) {
+        videoId = url.pathname.replace("/", "").split("/")[0];
+      }
+      if (!videoId && url.searchParams.get("v")) {
+        videoId = url.searchParams.get("v");
+      }
+      if (!videoId) {
+        const shortsMatch = url.pathname.match(/shorts\/([^/?]+)/);
+        if (shortsMatch) videoId = shortsMatch[1];
+      }
+      if (videoId) {
+        return `https://www.youtube.com/embed/${videoId}`;
+      }
+    } catch (e) {
+      return null;
+    }
+    return null;
+  }
+
+  function extractTikTokIdFromPath(pathname) {
+    const direct = pathname.match(/video\/(\d+)/);
+    if (direct && direct[1]) return direct[1];
+    const embed = pathname.match(/embed(?:\/v2)?\/(\d+)/);
+    if (embed && embed[1]) return embed[1];
+    return null;
+  }
+
+  async function resolveTikTokViaOEmbed(originalUrl) {
+    try {
+      const resp = await fetch(
+        `https://www.tiktok.com/oembed?url=${encodeURIComponent(originalUrl)}`
+      );
+      if (!resp.ok) return null;
+      const data = await resp.json();
+      const html = data?.html || "";
+      const match = html.match(/data-video-id="(\d+)"/);
+      if (match && match[1]) {
+        return `https://www.tiktok.com/embed/v2/${match[1]}`;
+      }
+    } catch (e) {
+      console.warn("Не удалось получить oEmbed TikTok", e);
+    }
+    return null;
+  }
+
+  async function normalizeTikTokUrl(raw) {
+    try {
+      const url = new URL(raw);
+      const idFromPath = extractTikTokIdFromPath(url.pathname);
+      if (idFromPath) {
+        return `https://www.tiktok.com/embed/v2/${idFromPath}`;
+      }
+
+      const host = url.hostname.toLowerCase();
+      if (
+        host.includes("vm.tiktok.com") ||
+        host.includes("vt.tiktok.com") ||
+        url.pathname.startsWith("/t/")
+      ) {
+        const resolved = await resolveTikTokViaOEmbed(raw);
+        if (resolved) return resolved;
+      }
+    } catch (e) {
+      return null;
+    }
+    return null;
+  }
+
+  async function normalizeMediaUrl(raw) {
+    const trimmed = (raw || "").trim();
+    if (!trimmed) return "";
+    if (trimmed.startsWith("blob:")) return trimmed;
+
+    const yt = normalizeYouTubeUrl(trimmed);
+    if (yt) return yt;
+
+    const tt = await normalizeTikTokUrl(trimmed);
+    if (tt) return tt;
+
+    return trimmed;
+  }
+
+  function getMediaMeta(url) {
+    const lower = url.toLowerCase();
+    if (lower.includes("tiktok.com")) {
+      return { type: "embed", aspect: "9 / 16", platform: "tiktok" };
+    }
+    if (lower.includes("youtube.com") || lower.includes("youtu.be")) {
+      return { type: "embed", aspect: "16 / 9", platform: "youtube" };
+    }
+    if (lower.match(/\.mp4|\.webm|\.ogg/)) {
+      return { type: "video", aspect: "16 / 9" };
+    }
+    return { type: "image" };
+  }
+
+  function createMediaElement(meme) {
+    const meta = getMediaMeta(meme.url || "");
+    const wrapper = document.createElement("div");
+    wrapper.className = "meme-media";
+    if (meta.aspect) {
+      wrapper.style.aspectRatio = meta.aspect;
+    }
+    if (meta.platform === "tiktok") {
+      wrapper.classList.add("media-vertical");
+    } else if (meta.platform === "youtube") {
+      wrapper.classList.add("media-horizontal");
+    }
+
+    if (meta.type === "embed") {
+      const iframe = document.createElement("iframe");
+      iframe.src = meme.url;
+      iframe.loading = "lazy";
+      iframe.allowFullscreen = true;
+      iframe.referrerPolicy = "no-referrer-when-downgrade";
+      iframe.allow = "autoplay; encrypted-media";
+      wrapper.appendChild(iframe);
+    } else if (meta.type === "video") {
+      const video = document.createElement("video");
+      video.src = meme.url;
+      video.controls = true;
+      video.playsInline = true;
+      wrapper.appendChild(video);
+    } else {
+      const img = document.createElement("img");
+      img.src = meme.url;
+      img.alt = meme.caption || "Мем";
+      wrapper.appendChild(img);
+    }
+
+    return wrapper;
+  }
+
   // === элементы ведущего ===
   const btnRoleHost = document.getElementById("btn-role-host");
   const btnRolePlayer = document.getElementById("btn-role-player");
@@ -137,8 +275,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const voteMemesContainer = document.getElementById("vote-memes-container");
   const btnShowResults = document.getElementById("btn-show-results");
 
-  const resultsRoundNumberSpan =
-    document.getElementById("results-round-number");
+  const resultsRoundNumberSpan = document.getElementById("results-round-number");
   const resultsListEl = document.getElementById("results-list");
   const btnNextRound = document.getElementById("btn-next-round");
   const btnNewGameFromResults = document.getElementById(
@@ -155,8 +292,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const playerMemeForm = document.getElementById("player-meme-form");
   const playerMemeUrlInput = document.getElementById("player-meme-url");
   const playerMemeFileInput = document.getElementById("player-meme-file");
-  const playerMemeCaptionInput =
-    document.getElementById("player-meme-caption");
+  const playerMemeCaptionInput = document.getElementById("player-meme-caption");
 
   // === рендеры ===
   function renderPlayers() {
@@ -173,13 +309,13 @@ document.addEventListener("DOMContentLoaded", () => {
         state.players.splice(index, 1);
         renderPlayers();
         renderMemePlayerSelect();
-        if (btnStartRound)
-          btnStartRound.disabled = state.players.length < 2;
+        if (btnStartRound) btnStartRound.disabled = state.players.length < 2;
       });
 
       li.appendChild(removeBtn);
       playersListEl.appendChild(li);
     });
+    if (btnStartRound) btnStartRound.disabled = state.players.length < 2;
     renderMemePlayerSelect();
   }
 
@@ -213,9 +349,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const card = document.createElement("div");
       card.className = "meme-card";
 
-      const img = document.createElement("img");
-      img.src = meme.url;
-      img.alt = meme.caption || "Мем";
+      const media = createMediaElement(meme);
 
       const info = document.createElement("div");
       info.className = "meme-info";
@@ -239,8 +373,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (hasVotedThisRound) return;
         hasVotedThisRound = true;
 
-        const allBtns =
-          voteMemesContainer.querySelectorAll(".vote-btn");
+        const allBtns = voteMemesContainer.querySelectorAll(".vote-btn");
         allBtns.forEach((b) => (b.disabled = true));
 
         if (currentRoomId && socket) {
@@ -254,7 +387,7 @@ document.addEventListener("DOMContentLoaded", () => {
       info.appendChild(titleEl);
       info.appendChild(captionEl);
 
-      card.appendChild(img);
+      card.appendChild(media);
       card.appendChild(info);
       card.appendChild(voteBtn);
 
@@ -269,9 +402,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const card = document.createElement("div");
       card.className = "meme-card";
 
-      const img = document.createElement("img");
-      img.src = meme.url;
-      img.alt = meme.caption || "Мем";
+      const media = createMediaElement(meme);
 
       const info = document.createElement("div");
       info.className = "meme-info";
@@ -295,8 +426,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (hasVotedThisRound) return;
         hasVotedThisRound = true;
 
-        const allBtns =
-          playerVoteContainer.querySelectorAll(".vote-btn");
+        const allBtns = playerVoteContainer.querySelectorAll(".vote-btn");
         allBtns.forEach((b) => (b.disabled = true));
 
         if (currentRoomId && socket) {
@@ -308,7 +438,7 @@ document.addEventListener("DOMContentLoaded", () => {
       info.appendChild(titleEl);
       info.appendChild(captionEl);
 
-      card.appendChild(img);
+      card.appendChild(media);
       card.appendChild(info);
       card.appendChild(voteBtn);
 
@@ -333,9 +463,8 @@ document.addEventListener("DOMContentLoaded", () => {
       const card = document.createElement("div");
       card.className = "result-card";
 
-      const img = document.createElement("img");
-      img.src = meme.url;
-      img.alt = meme.caption || "Мем";
+      const media = createMediaElement(meme);
+      media.classList.add("result-media");
 
       const info = document.createElement("div");
       info.className = "result-info";
@@ -353,7 +482,7 @@ document.addEventListener("DOMContentLoaded", () => {
       info.appendChild(title);
       if (meme.caption) info.appendChild(caption);
 
-      card.appendChild(img);
+      card.appendChild(media);
       card.appendChild(info);
       li.appendChild(card);
 
@@ -369,6 +498,37 @@ document.addEventListener("DOMContentLoaded", () => {
 
       resultsListEl.appendChild(li);
     });
+  }
+
+  function applyRoomState(roomState) {
+    if (!roomState) return;
+    const incomingPlayers = (roomState.players || []).map(
+      (p) => p.name || p
+    );
+    state.players = incomingPlayers;
+    const previousCount = state.memes.length;
+    state.memes = roomState.memes || [];
+
+    if (previousCount !== state.memes.length && state.memes.length === 0) {
+      hasVotedThisRound = false;
+    }
+
+    renderPlayers();
+    renderMemesPreview();
+
+    if (currentScreenId === "screen-vote") {
+      if (role === "host") {
+        renderVoteMemesHost();
+      } else if (role === "player") {
+        renderVoteMemesPlayer();
+      }
+    }
+    if (currentScreenId === "screen-player") {
+      renderVoteMemesPlayer();
+    }
+    if (currentScreenId === "screen-results") {
+      renderResults();
+    }
   }
 
   // === выбор роли ===
@@ -473,8 +633,6 @@ document.addEventListener("DOMContentLoaded", () => {
       state.players.push(name);
       if (playerNameInput) playerNameInput.value = "";
       renderPlayers();
-      if (btnStartRound)
-        btnStartRound.disabled = state.players.length < 2;
     });
   }
 
@@ -496,7 +654,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   if (formAddMeme) {
-    formAddMeme.addEventListener("submit", (e) => {
+    formAddMeme.addEventListener("submit", async (e) => {
       e.preventDefault();
       if (role !== "host") return;
       if (state.players.length === 0) {
@@ -514,6 +672,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (file) {
         url = URL.createObjectURL(file);
+      } else {
+        url = await normalizeMediaUrl(url);
       }
 
       const playerName = memePlayerSelect
@@ -645,7 +805,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   if (playerMemeForm) {
-    playerMemeForm.addEventListener("submit", (e) => {
+    playerMemeForm.addEventListener("submit", async (e) => {
       e.preventDefault();
       if (role !== "player") return;
       if (!currentRoomId) {
@@ -671,6 +831,8 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       if (file) {
         url = URL.createObjectURL(file);
+      } else {
+        url = await normalizeMediaUrl(url);
       }
       const caption =
         (playerMemeCaptionInput &&
@@ -687,4 +849,32 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       if (playerMemeUrlInput) playerMemeUrlInput.value = "";
-      if (playerMemeCaptionInp
+      if (playerMemeCaptionInput) playerMemeCaptionInput.value = "";
+      if (playerMemeFileInput) playerMemeFileInput.value = "";
+    });
+  }
+
+  // === socket ===
+  if (socket) {
+    socket.on("room_state", (roomState) => {
+      applyRoomState(roomState);
+    });
+
+    socket.on("connect", () => {
+      if (currentRoomId && role === "host") {
+        socket.emit("join_room", {
+          roomId: currentRoomId,
+          name: "Host",
+          role: "host",
+        });
+      }
+      if (currentRoomId && role === "player") {
+        socket.emit("join_room", {
+          roomId: currentRoomId,
+          name: playerNick || "Игрок",
+          role: "player",
+        });
+      }
+    });
+  }
+});
