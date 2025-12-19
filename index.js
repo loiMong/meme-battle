@@ -3,6 +3,7 @@ const http = require("http");
 const { Server } = require("socket.io");
 
 const app = express();
+app.use(express.json({ limit: "12mb" })); // PATCH: TikTok normalize
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
@@ -24,6 +25,52 @@ const PORT = process.env.PORT || 3000;
 const rooms = {};
 // карта сокет -> комната (для очистки при disconnect)
 const socketToRoom = {};
+
+const TIKTOK_UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"; // PATCH: TikTok normalize
+
+function extractTikTokVideoId(urlString) {
+  try {
+    const url = new URL(urlString);
+    const pathname = url.pathname || "";
+    const patterns = [
+      /\/video\/(\d+)/,
+      /\/v\/(\d+)\.html/,
+      /\/embed\/v2\/(\d+)/,
+      /\/embed\/(\d+)/,
+    ];
+    for (const pattern of patterns) {
+      const match = pathname.match(pattern);
+      if (match && match[1]) return match[1];
+    }
+  } catch (e) {
+    return null;
+  }
+  return null;
+}
+
+async function resolveTikTokRedirects(rawUrl) {
+  let currentUrl = rawUrl;
+  let resolvedUrl = rawUrl;
+  for (let i = 0; i < 8; i += 1) {
+    const response = await fetch(currentUrl, {
+      redirect: "manual",
+      headers: {
+        "User-Agent": TIKTOK_UA,
+      },
+    });
+    if (response.status >= 300 && response.status < 400) {
+      const location = response.headers.get("location");
+      if (!location) break;
+      currentUrl = new URL(location, currentUrl).toString();
+      resolvedUrl = currentUrl;
+      continue;
+    }
+    resolvedUrl = currentUrl;
+    break;
+  }
+  return resolvedUrl;
+}
 
 function getRoom(roomId) {
   const id = String(roomId).trim().toUpperCase();
@@ -157,6 +204,45 @@ io.on("connection", (socket) => {
       broadcastRoom(id);
     }
   });
+});
+
+app.post("/api/normalize-video-link", async (req, res) => {
+  // PATCH: TikTok normalize
+  const inputUrl = (req.body && req.body.url) || "";
+  if (!inputUrl) {
+    return res.json({ ok: false, reason: "missing_url" });
+  }
+
+  let parsed;
+  try {
+    parsed = new URL(inputUrl);
+  } catch (error) {
+    return res.json({ ok: false, reason: "invalid_url", error: error.message });
+  }
+
+  const host = parsed.hostname.toLowerCase();
+  if (!host.includes("tiktok.com")) {
+    return res.json({ ok: false, reason: "unsupported_platform" });
+  }
+
+  try {
+    const resolvedUrl = await resolveTikTokRedirects(inputUrl);
+    const videoId = extractTikTokVideoId(resolvedUrl);
+    const embedUrl = videoId
+      ? `https://www.tiktok.com/embed/v2/${videoId}`
+      : null;
+    const response = {
+      ok: true,
+      platform: "tiktok",
+      resolvedUrl,
+      browserUrl: resolvedUrl,
+      embedUrl,
+      videoId,
+    };
+    return res.json(response);
+  } catch (error) {
+    return res.json({ ok: false, reason: "fetch_failed", error: error.message });
+  }
 });
 
 // проверка, что сервер жив

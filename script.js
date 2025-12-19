@@ -32,6 +32,11 @@ document.addEventListener("DOMContentLoaded", () => {
   let hasVotedThisRound = false;
   let playerNick = "";
 
+  function pushDebug(message) {
+    // PATCH: TikTok normalize
+    console.debug(`[debug] ${message}`);
+  }
+
   // === общие элементы ===
   const roomLabel = document.getElementById("room-label");
   const roomIdInput = document.getElementById("room-id-input");
@@ -137,55 +142,6 @@ document.addEventListener("DOMContentLoaded", () => {
     return null;
   }
 
-  function extractTikTokIdFromPath(pathname) {
-    const direct = pathname.match(/video\/(\d+)/);
-    if (direct && direct[1]) return direct[1];
-    const embed = pathname.match(/embed(?:\/v2)?\/(\d+)/);
-    if (embed && embed[1]) return embed[1];
-    return null;
-  }
-
-  async function resolveTikTokViaOEmbed(originalUrl) {
-    try {
-      const resp = await fetch(
-        `https://www.tiktok.com/oembed?url=${encodeURIComponent(originalUrl)}`
-      );
-      if (!resp.ok) return null;
-      const data = await resp.json();
-      const html = data?.html || "";
-      const match = html.match(/data-video-id="(\d+)"/);
-      if (match && match[1]) {
-        return `https://www.tiktok.com/embed/v2/${match[1]}`;
-      }
-    } catch (e) {
-      console.warn("Не удалось получить oEmbed TikTok", e);
-    }
-    return null;
-  }
-
-  async function normalizeTikTokUrl(raw) {
-    try {
-      const url = new URL(raw);
-      const idFromPath = extractTikTokIdFromPath(url.pathname);
-      if (idFromPath) {
-        return `https://www.tiktok.com/embed/v2/${idFromPath}`;
-      }
-
-      const host = url.hostname.toLowerCase();
-      if (
-        host.includes("vm.tiktok.com") ||
-        host.includes("vt.tiktok.com") ||
-        url.pathname.startsWith("/t/")
-      ) {
-        const resolved = await resolveTikTokViaOEmbed(raw);
-        if (resolved) return resolved;
-      }
-    } catch (e) {
-      return null;
-    }
-    return null;
-  }
-
   async function normalizeMediaUrl(raw) {
     const trimmed = (raw || "").trim();
     if (!trimmed) return "";
@@ -194,14 +150,49 @@ document.addEventListener("DOMContentLoaded", () => {
     const yt = normalizeYouTubeUrl(trimmed);
     if (yt) return yt;
 
-    const tt = await normalizeTikTokUrl(trimmed);
-    if (tt) return tt;
-
+    // TikTok short-links are handled by normalizeVideoLink() via server.
     return trimmed;
   }
 
+  async function normalizeVideoLink(rawUrl) {
+    // PATCH: TikTok normalize (server-side)
+    const trimmed = (rawUrl || "").trim();
+    if (!trimmed) return "";
+
+    // Do not touch local blob/data urls
+    if (trimmed.startsWith("blob:") || trimmed.startsWith("data:")) return trimmed;
+
+    try {
+      const response = await fetch("/api/normalize-video-link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: trimmed }),
+      });
+
+      if (!response.ok) {
+        pushDebug(`normalize failed http=${response.status}`);
+        return "";
+      }
+
+      const data = await response.json();
+      pushDebug(
+        `normalize result ok=${data?.ok} embed=${Boolean(
+          data?.embedUrl
+        )} browser=${Boolean(data?.browserUrl)}`
+      );
+
+      if (data && data.ok) {
+        return data.embedUrl || data.browserUrl || "";
+      }
+    } catch (e) {
+      pushDebug(`normalize error: ${e?.message || String(e)}`);
+    }
+
+    return "";
+  }
+
   function getMediaMeta(url) {
-    const lower = url.toLowerCase();
+    const lower = String(url || "").toLowerCase();
     if (lower.includes("tiktok.com")) {
       return { type: "embed", aspect: "9 / 16", platform: "tiktok" };
     }
@@ -673,7 +664,11 @@ document.addEventListener("DOMContentLoaded", () => {
       if (file) {
         url = URL.createObjectURL(file);
       } else {
-        url = await normalizeMediaUrl(url);
+        // PATCH: TikTok normalize
+        pushDebug(`normalize input: ${url}`);
+        const normalized = await normalizeVideoLink(url);
+        url = normalized || (await normalizeMediaUrl(url));
+        pushDebug(`normalize output: ${url}`);
       }
 
       const playerName = memePlayerSelect
@@ -832,7 +827,11 @@ document.addEventListener("DOMContentLoaded", () => {
       if (file) {
         url = URL.createObjectURL(file);
       } else {
-        url = await normalizeMediaUrl(url);
+        // PATCH: TikTok normalize
+        pushDebug(`normalize input: ${url}`);
+        const normalized = await normalizeVideoLink(url);
+        url = normalized || (await normalizeMediaUrl(url));
+        pushDebug(`normalize output: ${url}`);
       }
       const caption =
         (playerMemeCaptionInput &&
