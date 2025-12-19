@@ -181,7 +181,8 @@ document.addEventListener("DOMContentLoaded", () => {
     return "";
   }
 
-  function getMediaMeta(url) {
+  function detectMediaType(url) {
+    // PATCH: TikTok normalize
     const lower = url.toLowerCase();
     if (lower.includes("tiktok.com")) {
       return { type: "embed", aspect: "9 / 16", platform: "tiktok" };
@@ -195,8 +196,20 @@ document.addEventListener("DOMContentLoaded", () => {
     return { type: "image" };
   }
 
+  function renderMediaHTML(meme) {
+    // PATCH: TikTok normalize
+    const meta = detectMediaType(meme.url || "");
+    if (meta.type === "embed") {
+      return `<iframe src="${meme.url}" loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade" allow="autoplay; encrypted-media"></iframe>`;
+    }
+    if (meta.type === "video") {
+      return `<video src="${meme.url}" controls playsinline></video>`;
+    }
+    return `<img src="${meme.url}" alt="${meme.caption || "Мем"}">`;
+  }
+
   function createMediaElement(meme) {
-    const meta = getMediaMeta(meme.url || "");
+    const meta = detectMediaType(meme.url || "");
     const wrapper = document.createElement("div");
     wrapper.className = "meme-media";
     if (meta.aspect) {
@@ -208,26 +221,7 @@ document.addEventListener("DOMContentLoaded", () => {
       wrapper.classList.add("media-horizontal");
     }
 
-    if (meta.type === "embed") {
-      const iframe = document.createElement("iframe");
-      iframe.src = meme.url;
-      iframe.loading = "lazy";
-      iframe.allowFullscreen = true;
-      iframe.referrerPolicy = "no-referrer-when-downgrade";
-      iframe.allow = "autoplay; encrypted-media";
-      wrapper.appendChild(iframe);
-    } else if (meta.type === "video") {
-      const video = document.createElement("video");
-      video.src = meme.url;
-      video.controls = true;
-      video.playsInline = true;
-      wrapper.appendChild(video);
-    } else {
-      const img = document.createElement("img");
-      img.src = meme.url;
-      img.alt = meme.caption || "Мем";
-      wrapper.appendChild(img);
-    }
+    wrapper.innerHTML = renderMediaHTML(meme);
 
     return wrapper;
   }
