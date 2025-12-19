@@ -178,17 +178,46 @@ button:disabled {
 .meme-card {
   background: #020617;
   border-radius: 14px;
-  padding: 10px;
+  padding: 12px;
   border: 1px solid #1f2937;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
-.meme-card img {
+.meme-media {
   width: 100%;
-  border-radius: 10px;
-  max-height: 260px;
+  border-radius: 12px;
+  border: 1px solid #1f2937;
+  overflow: hidden;
+  background: #0b1220;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.meme-media img,
+.meme-media video {
+  width: 100%;
+  height: auto;
+  max-height: 520px;
   object-fit: contain;
-  margin-bottom: 6px;
-  background: #020617;
+  display: block;
+  background: #0b1220;
+}
+
+.meme-media iframe {
+  border: none;
+  width: 100%;
+  height: 100%;
+}
+
+.meme-media.media-vertical {
+  aspect-ratio: 9 / 16;
+}
+
+.meme-media.media-horizontal {
+  aspect-ratio: 16 / 9;
 }
 
 .meme-info {
@@ -223,6 +252,10 @@ button:disabled {
 .results-list li {
   margin-bottom: 10px;
   font-size: 0.95rem;
+}
+
+.result-media {
+  margin-bottom: 10px;
 }
 
 .result-caption {
